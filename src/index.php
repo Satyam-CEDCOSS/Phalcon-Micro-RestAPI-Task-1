@@ -1,13 +1,15 @@
 <?php
 
+require_once  __DIR__ . "/vendor/autoload.php";
+
 use Phalcon\Loader;
 use Phalcon\Mvc\Micro;
 use Phalcon\Di\FactoryDefault;
-use Phalcon\Events\Event;
 use Phalcon\Events\Manager;
 use Phalcon\Acl\Adapter\Memory;
-
-
+use Phalcon\Security\JWT\Builder;
+use Phalcon\Security\JWT\Signer\Hmac;
+use Phalcon\Security\JWT\Token\Parser;
 
 $loader = new Loader();
 $loader->registerNamespaces(
@@ -17,7 +19,6 @@ $loader->registerNamespaces(
 );
 
 
-require_once  __DIR__ . "/vendor/autoload.php";
 
 $loader->register();
 
@@ -27,10 +28,19 @@ $container = new FactoryDefault();
 $manager = new Manager();
 $manager->attach(
     'micro:beforeExecuteRoute',
-    function (Event $event, $app) {
-
+    function () {
         $role = $_GET['role'];
-
+        $signer  = new Hmac();
+        $builder = new Builder($signer);
+        $passphrase = 'QcMpZ&b&mo3TPsPk668J6QH8JA$&U&m2';
+        $builder
+            ->setSubject($role)
+            ->setPassphrase($passphrase)
+        ;
+        $token = $builder->getToken();
+        $parser = new Parser();
+        $tokenObject = $parser->parse($token->getToken());
+        $role = $tokenObject->getclaims()->getpayload()['sub'];
 
         $acl = new Memory();
         $acl->addRole('user');
@@ -52,7 +62,7 @@ $manager->attach(
             echo 'Access granted!';
             echo "<br>";
         } else {
-            echo 'Access denied :(';
+            echo '<h1>Access denied :(</h1>';
             die;
         }
     }
